@@ -23,9 +23,20 @@ public class DronePerspective : MonoBehaviour
     [SerializeField] string playerMap = "Player";
     [SerializeField] string droneMap = "Drone";
 
+    [Header("Lens per group (optional)")]
+    [Tooltip("If true, use Orthographic Size (2D). If false, use Field of View (3D).")]
+    [SerializeField] bool useOrthographicLens = true;
+    [Tooltip("Player State Driven camera group's orthographic size or FOV.")]
+    [SerializeField] float playerView = 6f;
+    [Tooltip("Drone State Driven camera group's orthographic size or FOV.")]
+    [SerializeField] float droneView = 10f;
+
     void OnEnable()
     {
         usingDrone = !startWithPlayer;
+        // 先确保镜头尺寸设置正确
+        ApplyLens(playerCam, playerView);
+        ApplyLens(droneCam, droneView);
         Apply();
     }
 
@@ -65,5 +76,21 @@ public class DronePerspective : MonoBehaviour
 
         // 告知全局“当前受控对象”，用于在移动脚本中做门控
         ActiveControl.Instance.Current = usingDrone ? ActiveControl.Actor.Drone : ActiveControl.Actor.Player;
+    }
+
+    void ApplyLens(CinemachineVirtualCameraBase root, float value)
+    {
+        if (root == null) return;
+        // 查找该组下的所有真实虚拟相机（排除父级 StateDrivenCamera 本身）
+        var leafs = root.GetComponentsInChildren<CinemachineVirtualCamera>(true);
+        foreach (var vcam in leafs)
+        {
+            var lens = vcam.m_Lens; // LensSettings 是 struct，需要回写
+            if (useOrthographicLens)
+                lens.OrthographicSize = value;
+            else
+                lens.FieldOfView = value;
+            vcam.m_Lens = lens;
+        }
     }
 }
