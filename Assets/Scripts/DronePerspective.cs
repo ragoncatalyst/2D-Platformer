@@ -62,5 +62,8 @@ public class DronePerspective : MonoBehaviour
         {
             playerInput.SwitchCurrentActionMap(usingDrone ? droneMap : playerMap);
         }
+
+        // 告知全局“当前受控对象”，用于在移动脚本中做门控
+        ActiveControl.Instance.Current = usingDrone ? ActiveControl.Actor.Drone : ActiveControl.Actor.Player;
     }
 }

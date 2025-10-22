@@ -23,6 +23,7 @@ public class PlayerMovement : MonoBehaviour
     float gravityScaleAtStart;
 
     bool isAlive = true;
+    bool isActive => ActiveControl.Instance.Current == ActiveControl.Actor.Player;
     
     // Start is called before the first frame update
     void Start()
@@ -45,12 +46,27 @@ public class PlayerMovement : MonoBehaviour
             }
             return; 
         }
-        
-        Run();
+        // 只有成为受控对象时才处理移动相关
+        if (isActive)
+        {
+            Run();
+            ClimbLadder();
+            FlipSprite();
+            AutoFire();
+        }
+        else
+        {
+            // 非受控对象：保持竖直速度（重力与爬梯仍按碰撞决定），水平输入置零
+            if (!canFly)
+            {
+                var v = myRigidbody.velocity;
+                v.x = 0f;
+                myRigidbody.velocity = v;
+                myAnimator.SetBool("isRunning", false);
+            }
+        }
+        // 死亡判定始终有效
         Die();
-        FlipSprite();
-        ClimbLadder();
-        AutoFire();
     }
     void Run()
     {
@@ -77,11 +93,13 @@ public class PlayerMovement : MonoBehaviour
     void OnMove(InputValue value)
     {
         if (!useFlyMode && !isAlive) { return; }
+        if (!isActive) { return; }
         moveInput = value.Get<Vector2>();
     }
     void OnJump(InputValue value)
     {
         if (!isAlive) { return; }
+        if (!isActive) { return; }
         if(value.isPressed)
         {
             if (myFeetCollider.IsTouchingLayers(LayerMask.GetMask("Ground")))
@@ -110,12 +128,20 @@ public class PlayerMovement : MonoBehaviour
     {
         if (myFeetCollider.IsTouchingLayers(LayerMask.GetMask("Climbing")))
         {
-            Vector2 climbVelocity = new Vector2(myRigidbody.velocity.x, moveInput.y * climbSpeed);
-            myRigidbody.velocity = climbVelocity;
-            bool playerHasVerticalSpeed = Mathf.Abs(myRigidbody.velocity.y) > Mathf.Epsilon;
-            myAnimator.SetBool("isClimbing", playerHasVerticalSpeed);
-            myRigidbody.gravityScale = 0;
-
+            if (isActive)
+            {
+                Vector2 climbVelocity = new Vector2(myRigidbody.velocity.x, moveInput.y * climbSpeed);
+                myRigidbody.velocity = climbVelocity;
+                bool playerHasVerticalSpeed = Mathf.Abs(myRigidbody.velocity.y) > Mathf.Epsilon;
+                myAnimator.SetBool("isClimbing", playerHasVerticalSpeed);
+                myRigidbody.gravityScale = 0;
+            }
+            else if (!canFly)
+            {
+                // 不受控且处于梯子：按普通状态处理，允许自然下落
+                myRigidbody.gravityScale = gravityScaleAtStart;
+                myAnimator.SetBool("isClimbing", false);
+            }
         }
         else if (!canFly)
         {
@@ -155,6 +181,7 @@ public class PlayerMovement : MonoBehaviour
     void OnFire(InputValue value)
     {
         if (!isAlive) { return; }
+        if (!isActive) { return; }
         GameObject newBullet = Instantiate(bulletPrefab, bulletSpawnPoint.position, transform.rotation);
         
     }
